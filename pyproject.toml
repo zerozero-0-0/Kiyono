@@ -44,3 +44,7 @@ ignore = []
 pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
