@@ -11,10 +11,10 @@ def main() -> None:
         layout="wide",
     )
 
-    st.title("LLMO Content Generator")
-    st.caption("Intern Coding Challenge Prototype")
+    _ = st.title("LLMO Content Generator")
+    _ = st.caption("Intern Coding Challenge Prototype")
 
-    st.markdown(
+    _ = st.markdown(
         """
 この画面は最小構成のフロントエンド雛形です。
 次のステップで `FastAPI` バックエンドと接続して、タイトル生成と記事生成を実装します。
@@ -22,7 +22,7 @@ def main() -> None:
     )
 
     with st.expander("Setup hints", expanded=True):
-        st.markdown(
+        _ = st.markdown(
             """
 ### 1) Environment
 - `.env` を作成して API キーを設定
@@ -40,9 +40,9 @@ def main() -> None:
 """
         )
 
-    st.divider()
-    st.subheader("Status")
-    st.info("Frontend skeleton is ready. Backend integration comes next.")
+    _ = st.divider()
+    _ = st.subheader("Status")
+    _ = st.info("Frontend skeleton is ready. Backend integration comes next.")
 
 
 if __name__ == "__main__":

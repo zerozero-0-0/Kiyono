@@ -3,6 +3,7 @@ pyproject.toml
 app/__init__.py
 app/config.py
 app/main.py
+app/schemas.py
 frontend/__init__.py
 frontend/app.py
 kiyono_llmo_generator.egg-info/PKG-INFO
