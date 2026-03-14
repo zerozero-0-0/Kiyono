@@ -14,43 +14,30 @@ from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass
 from typing import Protocol
-
-
-@dataclass(frozen=True, slots=True)
-class GenerationParams:
-    """Parameters controlling text generation behavior.
-
-    Attributes:
-        temperature: Sampling temperature. (kept for interface compatibility)
-        max_output_tokens: Maximum output token budget hint.
-    """
-
-    temperature: float = 0.4
-    max_output_tokens: int = 2000
 
 
 class LLMClient(Protocol):
     """Protocol for language model clients."""
 
-    def generate_text(
+    async def generate_text(
         self,
         *,
         system_prompt: str,
         user_prompt: str,
-        params: GenerationParams | None = None,
+        temperature: float,
+        max_output_tokens: int,
     ) -> str:
-        """Generate text from prompts.
+        """Generate text asynchronously from prompts."""
+        ...
 
-        Args:
-            system_prompt: System-level instruction.
-            user_prompt: User input prompt.
-            params: Optional generation parameters.
-
-        Returns:
-            Generated text.
-        """
+    def generate(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+    ) -> str:
+        """Generate text synchronously from prompts."""
         ...
 
 
@@ -61,16 +48,27 @@ class LocalDeterministicStubClient:
     template logic. It does not call any external API.
     """
 
-    def generate_text(
+    async def generate_text(
         self,
         *,
         system_prompt: str,
         user_prompt: str,
-        params: GenerationParams | None = None,
+        temperature: float,
+        max_output_tokens: int,
     ) -> str:
-        """Generate deterministic text from prompts."""
-        _ = params or GenerationParams()
+        """Generate deterministic text from prompts asynchronously."""
+        mode = self._detect_mode(system_prompt=system_prompt, user_prompt=user_prompt)
+        if mode == "titles":
+            return self._generate_titles(user_prompt=user_prompt)
+        return self._generate_article(system_prompt=system_prompt, user_prompt=user_prompt)
 
+    def generate(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+    ) -> str:
+        """Generate deterministic text from prompts synchronously."""
         mode = self._detect_mode(system_prompt=system_prompt, user_prompt=user_prompt)
         if mode == "titles":
             return self._generate_titles(user_prompt=user_prompt)

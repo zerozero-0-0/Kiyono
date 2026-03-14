@@ -2,8 +2,24 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from typing import cast
+
+from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
+
+from app.config import get_settings
+from app.schemas import (
+    ErrorResponse,
+    GenerateArticleRequest,
+    GenerateArticleResponse,
+    GenerateTitlesRequest,
+    GenerateTitlesResponse,
+    ValidationReport,
+)
+from app.services.article_generator import ArticleGenerationInput, ArticleGenerator
+from app.services.llm_client import get_llm_client
+from app.services.llmo_validator import LLMOValidator
+from app.services.title_generator import TitleGenerationInput, TitleGenerationService
 
 
 class HealthResponse(BaseModel):
@@ -40,3 +56,112 @@ def health() -> HealthResponse:
         app=APP_TITLE,
         version=APP_VERSION,
     )
+
+
+@app.post(
+    "/generate/titles",
+    response_model=GenerateTitlesResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid input"},
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
+    summary="Generate LLMO title candidates",
+    tags=["generation"],
+)
+async def generate_titles(request: GenerateTitlesRequest) -> GenerateTitlesResponse:
+    """Generate multiple title candidates optimized for LLMs.
+
+    This endpoint uses a provider-agnostic text generation service to propose titles
+    based on a keyword and a brief.
+    """
+    settings = get_settings()
+    llm_client = get_llm_client(provider=settings.llm_provider)
+
+    service = TitleGenerationService(
+        llm_client=llm_client,
+        temperature=settings.temperature,
+        max_output_tokens=settings.max_output_tokens,
+    )
+
+    input_payload = TitleGenerationInput(
+        keyword=request.keyword,
+        brief=request.brief,
+        n_titles=request.n_titles,
+    )
+
+    try:
+        result = await service.generate(input_payload)
+        return GenerateTitlesResponse(
+            titles=result.titles,
+            rationale=result.rationale,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        # In a real app, log the exception detail securely
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred during title generation.",
+        )
+
+
+@app.post(
+    "/generate/article",
+    response_model=GenerateArticleResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid input"},
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
+    summary="Generate LLMO structured article",
+    tags=["generation"],
+)
+async def generate_article(request: GenerateArticleRequest) -> GenerateArticleResponse:
+    """Generate a full markdown article from a selected title.
+
+    The generation is constrained by LLMO formatting rules. The response includes
+    both the generated markdown and a structured validation report against the
+    LLMO criteria.
+    """
+    settings = get_settings()
+    llm_client = get_llm_client(provider=settings.llm_provider)
+
+    # We wrap the synchronous LLMClient in the ArticleGenerator.
+    # Since the stub is purely synchronous CPU-bound logic, it's fast.
+    generator = ArticleGenerator(llm_client=llm_client, model_name=settings.llm_model)
+    validator = LLMOValidator()
+
+    input_payload = ArticleGenerationInput(
+        selected_title=request.selected_title,
+        keyword=request.keyword,
+        brief=request.brief,
+        audience=request.audience,
+        tone=request.tone,
+    )
+
+    try:
+        result = generator.generate(input_payload)
+
+        # Validate the generated markdown
+        raw_report = validator.validate(result.markdown_article)
+
+        # Ensure dict matches Pydantic expectations safely
+        validation_report = ValidationReport.model_validate(raw_report)
+
+        return GenerateArticleResponse(
+            markdown_article=result.markdown_article,
+            validation_report=validation_report,
+            json_ld=None,  # Not implemented in MVP yet
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred during article generation.",
+        )
