@@ -133,7 +133,10 @@ class GenerateArticleRequest(BaseModel):
     @field_validator("audience", "tone", mode="before")
     @classmethod
     def _normalize_optional_fields(cls, value: object) -> object:
-        """オプションのテキストフィールドを正規化します: 空の場合はNone、それ以外はトリミングします。"""
+        """オプションのテキストフィールドを正規化します。
+
+        空の場合はNone、それ以外はトリミングします。
+        """
         if value is None:
             return None
         if isinstance(value, str):

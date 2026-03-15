@@ -75,12 +75,18 @@ class LLMOValidator:
         flags=re.MULTILINE,
     )
     _q_pattern: Pattern[str] = re.compile(
-        r"^\s*(Q[:：]|質問[:：])",
+        r"^\s*(?:-\s*)?\**(?:Q|質問)\d*\**[:：.]?",
         flags=re.MULTILINE | re.IGNORECASE,
     )
     _a_pattern: Pattern[str] = re.compile(
-        r"^\s*(A[:：]|回答[:：])",
+        r"^\s*(?:-\s*)?\**(?:A|回答)\d*\**[:：.]?",
         flags=re.MULTILINE | re.IGNORECASE,
+    )
+    _h1_pattern: Pattern[str] = re.compile(r"^#\s+.+$", flags=re.MULTILINE)
+    _ul_pattern: Pattern[str] = re.compile(r"^[ \t]*[-*]\s+.+$", flags=re.MULTILINE)
+    _a_block_pattern: Pattern[str] = re.compile(
+        r"^\s*(?:-\s*)?\**(?:A|回答)\d*\**[:：.]?\s*(.*?)(?=\n\s*(?:-\s*)?\**(?:Q|質問|A|回答)\d*\**[:：.]?|\n#|$)",
+        flags=re.MULTILINE | re.IGNORECASE | re.DOTALL,
     )
 
     def validate(self, markdown_article: str) -> ValidationResult:
@@ -88,6 +94,12 @@ class LLMOValidator:
         text = markdown_article.strip()
 
         checks: list[ValidationCheck] = []
+
+        h1_passed, h1_detail = self._check_h1_title(text)
+        checks.append(ValidationCheck("h1_title", h1_passed, h1_detail))
+
+        ul_passed, ul_detail = self._check_ul_usage(text)
+        checks.append(ValidationCheck("ul_lists", ul_passed, ul_detail))
 
         summary_passed, summary_detail = self._check_summary_first(text)
         checks.append(ValidationCheck("summary_first", summary_passed, summary_detail))
@@ -142,6 +154,19 @@ class LLMOValidator:
             "missing_actions": missing_actions,
             "stats": stats,
         }
+
+    def _check_h1_title(self, text: str) -> tuple[bool, str]:
+        """記事にh1タイトルが存在するか確認します。"""
+        if self._h1_pattern.search(text):
+            return True, "H1 title found."
+        return False, "H1 title (#) not found."
+
+    def _check_ul_usage(self, text: str) -> tuple[bool, str]:
+        """記事内に箇条書き（ul）が十分に使用されているか確認します。"""
+        count = len(self._ul_pattern.findall(text))
+        if count >= 3:
+            return True, f"Found {count} UL items."
+        return False, f"Not enough UL items (found {count}, expected at least 3)."
 
     def _check_summary_first(self, text: str) -> tuple[bool, str]:
         """記事が要約のようなセクションで始まっているか確認します。"""
@@ -198,7 +223,7 @@ class LLMOValidator:
         return table_count >= 1, table_count
 
     def _check_faq_section(self, text: str) -> tuple[bool, str]:
-        """FAQセクションの見出しと最小限のQ/Aシグナルを確認します。"""
+        """FAQセクションの見出しとQ/Aペア、および回答の長さを確認します。"""
         heading_match = self._faq_heading_pattern.search(text)
         if heading_match is None:
             return False, "FAQ heading not found. Use '## FAQ' or equivalent."
@@ -208,15 +233,23 @@ class LLMOValidator:
         faq_tail = text[start_idx:]
 
         q_count = len(self._q_pattern.findall(faq_tail))
-        a_count = len(self._a_pattern.findall(faq_tail))
+        answers = [m.group(1).strip() for m in self._a_block_pattern.finditer(faq_tail)]
 
-        if q_count == 0 or a_count == 0:
+        if q_count == 0 or len(answers) == 0:
             return False, "FAQ heading found, but Q/A pairs are missing."
 
-        if not near_end:
-            return True, "FAQ exists with Q/A pairs (not at very end, acceptable)."
+        # 回答の文字数（空白除去後）が極端に短すぎないか、長すぎないかをチェック（30〜300文字のゆとりを持たせた範囲）
+        lengths = [len(re.sub(r"\s+", "", a)) for a in answers]
+        invalid_lengths = [l for l in lengths if not (30 <= l <= 300)]
 
-        return True, "FAQ heading and Q/A pairs found near article end."
+        detail_msg = f"Q/A found. Answer lengths: {lengths}."
+        if invalid_lengths:
+            return False, f"FAQ answers length out of bounds (30-300 chars). {detail_msg}"
+
+        if not near_end:
+            return True, f"FAQ exists (not at very end). {detail_msg}"
+
+        return True, f"FAQ heading and valid Q/A found near article end. {detail_msg}"
 
     def _check_heading_hierarchy(self, text: str) -> tuple[bool, str]:
         """基本的なh2/h3階層の健全性を確認します。"""
@@ -235,14 +268,22 @@ class LLMOValidator:
             if check.passed:
                 continue
 
-            if check.name == "summary_first":
+            if check.name == "h1_title":
+                actions.append("記事の先頭に「# タイトル」の形式でh1見出しを追加してください。")
+            elif check.name == "ul_lists":
+                actions.append(
+                    "見出しの内容に箇条書き（ul: `- `）を適切に使用して構造化してください。"
+                )
+            elif check.name == "summary_first":
                 actions.append("冒頭を挨拶ではなく結論（Summary）から開始してください。")
             elif check.name == "strict_definitions":
                 actions.append("「Xとは、〜である」の形式で定義文を最低1つ追加してください。")
             elif check.name == "markdown_table":
                 actions.append("Markdown表（| 区切り）を1つ以上追加してください。")
             elif check.name == "faq_section":
-                actions.append("記事末尾に「## FAQ」見出しとQ/Aペアを追加してください。")
+                actions.append(
+                    "記事末尾に「## FAQ」見出しとQ/Aペアを追加し、各回答を130〜140文字程度にまとめてください。"
+                )
             elif check.name == "heading_hierarchy":
                 actions.append("h3を使う場合は先にh2を配置してください。")
             else:
