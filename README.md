@@ -1,8 +1,6 @@
 # LLMO Content Generator
 
 生成AI時代に向けた、LLMO（Large Language Model Optimization）最適化コンテンツの生成・支援システムです。
-データサイエンスインターンのコーディング課題（課題2）として作成されたプロトタイプ実装です。
-
 従来の「検索エンジン（SEO）向け」ではなく、「ChatGPT / Claude / Gemini 等の生成AIに引用・参照されやすい（LLMO向け）」記事の企画から執筆、形式検証までを半自動化します。
 
 ---
