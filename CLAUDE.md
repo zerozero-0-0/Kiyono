@@ -1,5 +1,5 @@
 # Project Overview
-このプロジェクトは、データサイエンスインターン課題「課題2：LLMO用コンテンツ生成システム」の実装を目的とする。  
+このプロジェクトは、データサイエンスインターン課題「LLMO用コンテンツ生成システム」の実装を目的とする。  
 狙いは、従来のSEO中心記事ではなく、ChatGPT / Claude / Gemini などの生成AIに引用・参照されやすいコンテンツを、再現可能なプロセスで生成・改善できるようにすること。
 
 ---
@@ -25,18 +25,6 @@
 
 ---
 
-## Evaluation Mindset (Interview-Oriented)
-この課題は「完璧なプロダクト」より、以下が重視される：
-
-- 何を優先したか（優先順位設計）
-- なぜその方式にしたか（意思決定理由）
-- 制約下でどう実装を成立させたか（実行力）
-- 参考情報をどう取捨選択したか（適応力）
-
-**したがって、実装と同じくらい `docs/` の意思決定ログが重要。**
-
----
-
 ## Scope
 
 ### In Scope (MVP)
@@ -56,10 +44,11 @@
 ## Technical Stack (Default)
 - **Backend:** Python + FastAPI
 - **Frontend:** Streamlit
-- **AI Integration:** Gemini API（将来 OpenAI/Anthropic へ差し替え可能な抽象化）
+- **AI Integration:** Gemini API（抽象化によりプロバイダの差し替えが容易な設計）
 - **Package Management:** uv
 - **Validation:** Pydantic
-- **Lint/Format:** Ruff（必要に応じて型検査を追加）
+- **Lint/Format:** Ruff
+- **Type Checker:** ty（Astral製の超高速型チェッカーを採用し開発効率を向上）
 
 ---
 
@@ -70,6 +59,7 @@ kiyono/
     main.py
     schemas.py
     config.py
+    constants.py  
     services/
       llm_client.py
       title_generator.py
@@ -101,18 +91,20 @@ kiyono/
 記事生成時は以下を必須要件とする。生成指示・検証ロジックの両方で担保すること。
 
 1. **結論先行・高情報密度**
-   - 冒頭は挨拶や前置き禁止
-   - タイトルへの直接回答（Summary）で開始
+   - 記事の先頭は必ず `h1`（`# タイトル`）から始める
+   - 冒頭は挨拶や前置きを禁止し、タイトルへの直接回答（Summary）で開始
+   - 抽象的な表現を避け、具体的な一次情報を明記する
 
 2. **厳密な定義**
    - 主要キーワードに対し「Xとは、〜である」の形式を最低1つ以上含める
 
-3. **構造化データ**
-   - 箇条書きはMECEを意識
+3. **構造化データ（タグ付けの徹底）**
+   - 見出しの内容には箇条書き（`ul`）を積極的に使用して構造を明確化する
    - 比較・選定軸・数値はMarkdown表を利用
 
 4. **FAQセクション**
-   - 記事末尾に想定質問と簡潔回答を配置
+   - 記事末尾に「一問一答形式」で配置（QとAの間は必ず改行を入れる）
+   - AIが要約しやすいよう、各回答（A）は「130〜140文字程度」に制限
 
 ---
 
@@ -160,10 +152,12 @@ kiyono/
 ## Validation Policy (Critical)
 `llmo_validator` で最低限以下を検査し、機械判定可能にすること：
 
+- H1見出し（`# タイトル`）の存在
+- 箇条書き（`ul`）の十分な使用
 - 冒頭Summary有無（先頭セクション判定）
 - 「とは、〜である」形式の定義文数
 - Markdown表の存在（`|` 区切り）
-- FAQ見出しとQ/Aペアの存在
+- FAQ見出しとQ/Aペアの存在、および回答の文字数（短すぎず長すぎないか）
 - 見出し階層の基本整合（h2/h3）
 
 `validation_report` は以下を含む：
@@ -171,6 +165,18 @@ kiyono/
 - `checks: list[{name, passed, detail}]`
 - `score: int`（任意）
 - `missing_actions: list[str]`
+
+---
+
+## Key Architecture & Implementation Decisions (面接アピールポイント)
+1. **リソース配分の最適化**
+   - コア価値である「バックエンドの生成・検査ロジック」に注力するため、フロントエンド（Streamlit）の実装は生成AI（コーディングエージェント）をフル活用して工数を大幅に削減。
+2. **実験の再現性と一元管理**
+   - `app/constants.py` を新設し、システムプロンプトや文字数制限などのパラメーターを分離。これにより、プロンプトの微調整や制約のA/Bテストを容易に行える設計とした。
+3. **自作バリデーターによる品質保証**
+   - LLMの出力を信用しきらず、`app/services/llmo_validator.py` において、正規表現等を駆使した機械的テスト（H1の有無、箇条書きの数、FAQ文字数など）を実装。要件の合否をUI上で可視化し、評価を透明化した。
+4. **モダンで高速なツールの採用**
+   - パッケージ管理に `uv`、型検査に `ty` を採用し、環境構築と静的解析の待ち時間を極限まで削減。DX（開発体験）の向上を図った。
 
 ---
 
@@ -192,56 +198,6 @@ kiyono/
 - APIキーは `.env` 管理
 - シークレットのハードコード禁止
 - ログへの機密情報出力禁止
-
----
-
-## Autonomous Coding-Agent Operating Rules
-コーディングエージェントは以下に従って自走すること。
-
-1. **Plan First**
-   - 実装前に `docs/plan.md` を更新し、目的・範囲・優先順位を明示する。
-
-2. **Thin Vertical Slice**
-   - まず「入力→タイトル→記事→表示」の最短動線を完成させる。
-   - その後に品質改善を重ねる。
-
-3. **Small, Explainable Commits**
-   - 変更は小さく分割し、各コミットで理由を説明可能にする。
-
-4. **Decision Logging**
-   - 重要な判断は `docs/decisions.md` に以下で記録：
-     - Context
-     - Options
-     - Decision
-     - Consequence
-
-5. **No Silent Assumptions**
-   - 不明点は TODO と仮説を明記し、影響範囲を限定する。
-
-6. **Validation Before Expansion**
-   - 新機能追加前に既存フローの検査・テストを通す。
-
-7. **Interview Readiness**
-   - 実装と同時に「なぜこの設計か」を説明できる材料を残す。
-
----
-
-## Documentation Requirements
-最低限、以下を整備すること：
-
-- `README.md`
-  - 起動手順
-  - API一覧
-  - デモ手順
-- `docs/plan.md`
-  - 要件分解
-  - マイルストーン
-- `docs/decisions.md`
-  - 設計判断ログ
-- `docs/experiments.md`
-  - 比較実験（例：ルール有無での出力差）
-- `docs/references.md`
-  - 参考URL（Zenn/Qiita/公式Docs）と採用・不採用理由
 
 ---
 
@@ -267,43 +223,3 @@ kiyono/
 
 3. **Prompt Regression (Optional)**
    - 出力形式の崩れを検出する簡易チェック
-
----
-
-## Milestone Plan (2 Weeks)
-- **Day 1-2:** 要件整理・設計・骨組み作成
-- **Day 3-5:** タイトル生成API + UI接続
-- **Day 6-9:** 本文生成 + LLMO制約適用
-- **Day 10-11:** バリデータ実装 + 比較実験
-- **Day 12-14:** README整備・デモ準備・想定問答整理
-
----
-
-## Definition of Done
-以下を満たしたら課題提出可能：
-
-- ローカルで一連フローが再現できる
-- LLMO必須要件を機械検査で可視化できる
-- READMEで第三者が起動できる
-- 設計判断・工夫・比較実験を説明できる資料がある
-
----
-
-## Commit Message Convention
-- `feat:`
-- `fix:`
-- `docs:`
-- `refactor:`
-- `test:`
-- `chore:`
-
-例：
-- `feat: implement two-step generation pipeline`
-- `fix: enforce FAQ and definition section in article prompt`
-- `docs: add decision log for model abstraction choice`
-
----
-
-## Final Principle
-**「動くもの」だけでなく、「なぜそう作ったか」を残す。**  
-この課題の本質は、実装力と同時に、思考と説明責任を示すことにある。
