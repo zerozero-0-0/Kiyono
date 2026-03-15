@@ -32,7 +32,7 @@ class Settings(BaseSettings):
         max_output_tokens: Max tokens for model output.
     """
 
-    model_config = SettingsConfigDict(
+    model_config = SettingsConfigDict(  # pyright: ignore[reportUnannotatedClassAttribute]
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
@@ -46,17 +46,17 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, ge=1, le=65535)
 
     llm_provider: Literal["gemini", "openai", "anthropic"] = "gemini"
-    llm_model: str = "gemini-1.5-flash"
+    llm_model: str = "gemini-2.5-flash"
 
     gemini_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
 
-    request_timeout_seconds: int = Field(default=30, ge=1, le=300)
+    request_timeout_seconds: int = Field(default=60, ge=1, le=300)
     max_titles: int = Field(default=10, ge=1, le=20)
     default_titles: int = Field(default=8, ge=1, le=20)
     temperature: float = Field(default=0.4, ge=0.0, le=2.0)
-    max_output_tokens: int = Field(default=2000, ge=64, le=8192)
+    max_output_tokens: int = Field(default=8000, ge=64, le=8192)
 
     @property
     def provider_api_key(self) -> SecretStr | None:

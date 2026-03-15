@@ -1,13 +1,10 @@
-"""LLM client abstraction with deterministic local stub generation.
+"""LLM client abstraction with deterministic local stub and Gemini API support.
 
 This module provides:
 - A provider-agnostic client interface for text generation.
+- A Gemini API implementation.
 - A deterministic local stub implementation for development/testing.
 - A factory function to select a concrete client based on runtime settings.
-
-The stub is intentionally deterministic so that:
-- UI and API wiring can be validated without external API keys.
-- Test expectations remain stable across runs.
 """
 
 from __future__ import annotations
@@ -15,6 +12,9 @@ from __future__ import annotations
 import hashlib
 import re
 from typing import Protocol
+
+from google import genai
+from google.genai import types
 
 
 class LLMClient(Protocol):
@@ -39,6 +39,61 @@ class LLMClient(Protocol):
     ) -> str:
         """Generate text synchronously from prompts."""
         ...
+
+
+class GeminiClient:
+    """Client for Google's Gemini API."""
+
+    def __init__(self, api_key: str, model_name: str = "gemini-1.5-flash") -> None:
+        """Initialize the Gemini client.
+
+        Args:
+            api_key: Gemini API key.
+            model_name: Model identifier to use.
+        """
+        self._client = genai.Client(api_key=api_key)
+        self._model_name = model_name
+
+    async def generate_text(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float,
+        max_output_tokens: int,
+    ) -> str:
+        """Generate text asynchronously via Gemini."""
+        config = types.GenerateContentConfig(
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+            system_instruction=system_prompt,
+        )
+        response = await self._client.aio.models.generate_content(
+            model=self._model_name,
+            contents=user_prompt,
+            config=config,
+        )
+        return response.text or ""
+
+    def generate(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+    ) -> str:
+        """Generate text synchronously via Gemini."""
+        # Default config for sync generation if not specified
+        config = types.GenerateContentConfig(
+            temperature=0.4,
+            max_output_tokens=8000,
+            system_instruction=system_prompt,
+        )
+        response = self._client.models.generate_content(
+            model=self._model_name,
+            contents=user_prompt,
+            config=config,
+        )
+        return response.text or ""
 
 
 class LocalDeterministicStubClient:
@@ -223,12 +278,18 @@ def get_llm_client(provider: str = "stub") -> LLMClient:
     """Return an LLM client by provider name.
 
     Args:
-        provider: Provider identifier. Currently supports:
-            - "stub": deterministic local stub
-            - any other value also falls back to stub for safe local development
+        provider: Provider identifier. Currently supports "gemini" and "stub".
 
     Returns:
         Instance conforming to `LLMClient`.
     """
-    _ = provider  # reserved for future provider routing
+    from app.config import get_settings
+
+    settings = get_settings()
+
+    if provider == "gemini":
+        api_key = settings.provider_api_key_value
+        if api_key:
+            return GeminiClient(api_key=api_key, model_name=settings.llm_model)
+
     return LocalDeterministicStubClient()

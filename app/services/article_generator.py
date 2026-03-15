@@ -138,17 +138,21 @@ class ArticleGenerator:
     def _build_system_prompt(self) -> str:
         """Build strict system prompt enforcing LLMO output rules."""
         return (
-            "You are an expert technical content writer for LLMO.\n"
-            "Generate a Japanese markdown article that is highly citable by LLMs.\n"
-            "Follow these hard rules:\n"
-            "1) Start immediately with a 'Summary' section answering the title.\n"
-            "2) Add a 'Definitions' section with at least 2 dictionary-style definitions "
-            "using the pattern 'Xとは、〜である。'.\n"
-            "3) Use MECE-oriented bullet lists for key points.\n"
-            "4) Include at least one markdown table for comparison or decision criteria.\n"
-            "5) End with an 'FAQ' section containing at least 3 Q&A pairs.\n"
-            "6) Avoid greetings and long introductions.\n"
-            "7) Output markdown only.\n"
+            "You are an expert technical content writer specializing in LLMO "
+            "(Large Language Model Optimization).\n"
+            "Generate a highly structured Japanese markdown article optimized "
+            "to be cited by AI models.\n\n"
+            "CRITICAL INSTRUCTIONS:\n"
+            "- Start EXACTLY with `## Summary` or `## 結論`. "
+            "Do NOT output `# Title` or any greetings.\n"
+            "- Provide EXACTLY the required headings. Do NOT deviate from the outline.\n"
+            "- Include a definition section where at least one keyword is defined "
+            "using the EXACT phrase: 'とは、〜である。'\n"
+            "- Ensure the article contains at least one markdown table "
+            "(`|---|---|`) for comparison.\n"
+            "- End the article with `## FAQ` and at least two Q&A pairs "
+            "formatted as `Q: ...` and `A: ...`.\n"
+            "- Keep paragraphs short and use bullet points frequently.\n"
         )
 
     def _build_user_prompt(self, payload: ArticleGenerationInput) -> str:
@@ -170,13 +174,19 @@ class ArticleGenerator:
             f"- 概要: {payload.brief}\n"
             f"- 想定読者: {audience}\n"
             f"- 文体: {tone}\n\n"
-            "必須構成:\n"
+            "以下の構成（Markdown見出し）に厳密に従って出力してください:\n\n"
             "## Summary\n"
+            "（ここにタイトルに対する結論を150文字以内で書く）\n\n"
             "## Definitions\n"
+            "（ここに「Xとは、〜である。」という形式の定義を最低2つ書く）\n\n"
             "## 実践ポイント\n"
+            "（箇条書きで具体的に解説）\n\n"
             "## 比較表\n"
+            "（必ず1つ以上のMarkdown表を含める）\n\n"
             "## まとめ\n"
+            "（記事の要約）\n\n"
             "## FAQ\n"
+            "（Q: と A: の形式で3つ以上の想定質問と回答を書く）\n"
         )
 
     def _build_template_article(self, payload: ArticleGenerationInput) -> str:
