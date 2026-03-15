@@ -42,7 +42,6 @@
 ```bash
 make install
 ```
-※ 内部で `uv pip install -e ".[dev]"` が実行されます。
 
 ### 3. 環境変数の設定
 `.env.example` をコピーして `.env` ファイルを作成します。
@@ -94,32 +93,3 @@ kiyono/
 └── README.md                  # 本ファイル
 ```
 
----
-
-## 🎯 評価者の方へ (For Evaluators)
-
-本課題では「完成度だけでなく、思考プロセスやアプローチ」が重視されているため、実装コードに加えて以下のドキュメントを用意しています。最終面接時の補足資料としてご参照ください。
-
-- 📄 **[docs/proposal.md](docs/proposal.md)**
-  - 課題に対する着眼点、アプローチ、工夫した点、技術選定の理由をまとめた**企画書**です。
-- 📄 **[docs/decisions.md](docs/decisions.md)**
-  - 開発中に行われた主要な設計判断（例：なぜ1括生成ではなく2段階生成にしたのか？なぜバリデータを作ったのか？）とその背景を記録した**意思決定ログ**です。
-- 📄 **[docs/experiments.md](docs/experiments.md)**
-  - プロンプトの設計や生成結果の品質改善に関する比較実験の記録です。
-- 📄 **[docs/plan.md](docs/plan.md)**
-  - 開発の進め方とマイルストーンの計画です。
-
----
-
-## ⌨️ 開発用コマンド (Developer Commands)
-
-開発・保守に便利なコマンドを `Makefile` にまとめています。
-
-- `make dev` : バックエンドとフロントエンドを同時に起動
-- `make dev-backend` : バックエンドのみ起動（ホットリロード有効）
-- `make dev-frontend` : フロントエンドのみ起動
-- `make lint` : Ruff による静的解析（Linter）
-- `make format` : Ruff によるコードフォーマット
-- `make typecheck` : Pyright による型検査
-- `make test` : Pytest によるテスト実行
-- `make clean` : キャッシュファイルの削除
