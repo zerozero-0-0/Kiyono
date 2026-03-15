@@ -1,224 +1,125 @@
-# LLMO Content Generator (Intern Coding Challenge)
+# LLMO Content Generator
 
-LLMO（Large Language Model Optimization）向けに、**生成AIに引用・参照されやすい記事**を作るためのプロトタイプです。  
-ユーザーが入力したキーワード・概要から、以下を行います。
+生成AI時代に向けた、LLMO（Large Language Model Optimization）最適化コンテンツの生成・支援システムです。
+データサイエンスインターンのコーディング課題（課題2）として作成されたプロトタイプ実装です。
 
-1. タイトル案（5〜10件）の生成  
-2. 選択タイトルに基づく記事本文（Markdown）の生成  
-3. LLMO要件のバリデーション結果の表示  
-4. （任意）Schema.org JSON-LDの出力  
+従来の「検索エンジン（SEO）向け」ではなく、「ChatGPT / Claude / Gemini 等の生成AIに引用・参照されやすい（LLMO向け）」記事の企画から執筆、形式検証までを半自動化します。
 
 ---
 
-## 1. Project Goals
+## 🌟 主な機能 (Core Features)
 
-### 背景
-従来のSEO中心のコンテンツ制作から、ChatGPT / Claude / Gemini などの生成AIに引用されることを前提とした設計へシフトする必要があります。
-
-### 目的
-- 記事企画〜生成の試行錯誤を高速化する
-- LLMO向けの構造化ルールを生成時に強制する
-- 面接で説明可能な「設計意図・工夫・判断」を残す
-
-### 非目的
-- 本番デプロイ
-- 大規模RAGシステム構築
-- 完全自動の品質保証
+1. **2段階生成アプローチ**
+   - **タイトル案生成**: ユーザーが入力した「キーワード」と「記事概要（ターゲット・課題）」から、AIが読者の関心を惹くタイトル案を5〜10件提案します。
+   - **記事本文生成**: ユーザーが選択したタイトルをもとに、LLMOに特化した構成でMarkdown記事を自動生成します。
+2. **LLMOフォーマットの厳密な適用**
+   - 生成プロンプトを工夫し、AIが情報を抽出しやすい「結論先行（Summary）」「厳密な定義（Xとは〜である）」「構造化データ（Markdown表・箇条書き）」「FAQ（Q&A）」の構成を強制します。
+3. **ルールベースのLLMOバリデーション**
+   - 生成された記事が本当にLLMOの要件を満たしているかを機械的に検査・スコア化し、不足している場合はユーザーに「Markdown表を追加してください」などの改善アクションを提示します。
+4. **決定論的モック（Stub Client）の搭載**
+   - 外部APIキーがなくても開発・UI動作確認が可能なローカルスタブモードを搭載しています。
 
 ---
 
-## 2. Core Features (MVP)
+## 🛠️ 技術スタック (Tech Stack)
 
-- 入力フォーム
-  - キーワード（例: プロジェクト管理、営業DX）
-  - 記事概要（想定読者・課題・伝えたい価値）
-- タイトル生成
-  - 5〜10件を提案
-- 本文生成
-  - Summary先行
-  - 明確な定義（「Xとは、〜である」）
-  - 箇条書き・表の活用
-  - FAQを末尾に配置
-- バリデーション
-  - LLMO要件を満たしているかを機械判定して可視化
+- **Backend**: Python 3.11+, FastAPI, Pydantic (厳格な型推論とバリデーション)
+- **Frontend**: Streamlit (高速なプロトタイプUI構築)
+- **AI Integration**: `google-genai` (Gemini 2.5 Flash 搭載)
+- **Tooling**: `uv` (超高速パッケージ管理), `Ruff` (Linter/Formatter), `Pyright` (Type Checker), `Make`
 
 ---
 
-## 3. Repository Structure (Planned)
+## 🚀 セットアップと起動 (Getting Started)
 
-```kiyono/README.md#L1-40
-kiyono/
-  app/
-    main.py
-    config.py
-    schemas.py
-    services/
-      llm_client.py
-      title_generator.py
-      article_generator.py
-      llmo_validator.py
-      jsonld_generator.py
-  frontend/
-    app.py
-  prompts/
-    title_system.txt
-    title_user.txt
-    article_system.txt
-    article_user.txt
-  docs/
-    plan.md
-    decisions.md
-    experiments.md
-    references.md
-  tests/
-    test_api_smoke.py
-    test_validator.py
-  .env.example
-  pyproject.toml
-  CLAUDE.md
-  README.md
+### 1. 前提条件
+- Python 3.11 以上
+- [uv](https://github.com/astral-sh/uv) がインストールされていること
+
+### 2. インストール
+リポジトリをクローン後、以下のコマンドで依存関係をインストールします。
+
+```bash
+make install
 ```
+※ 内部で `uv pip install -e ".[dev]"` が実行されます。
 
----
+### 3. 環境変数の設定
+`.env.example` をコピーして `.env` ファイルを作成します。
 
-## 4. Tech Stack
-
-- Backend: `FastAPI`
-- Frontend: `Streamlit`
-- LLM: `Gemini API`（将来的に他プロバイダ差し替えを想定）
-- Package Manager: `uv`
-- Validation: `Pydantic`
-- Lint/Format: `Ruff`
-
----
-
-## 5. Setup
-
-## 前提
-- Python 3.11+ 推奨
-- `uv` インストール済み
-
-## 初期化（予定コマンド）
-```kiyono/README.md#L1-20
-uv venv
-source .venv/bin/activate
-uv pip install -e .
+```bash
+cp .env.example .env
 ```
+`.env` ファイルを開き、Gemini APIキーを設定してください。
+（※ APIキーがない場合は `LLM_PROVIDER=stub` とすることで、固定テキストを返すモックモードで動作確認が可能です）
 
-## 環境変数
-`.env` を作成（`.env.example` をコピー）
-
-```kiyono/README.md#L1-10
+```env
+LLM_PROVIDER=gemini
+LLM_MODEL=gemini-2.5-flash
 GEMINI_API_KEY=your_api_key_here
-APP_ENV=local
-LOG_LEVEL=INFO
+```
+
+### 4. アプリケーションの起動
+Makefileを使用して、バックエンドとフロントエンドを同時に起動します。
+
+```bash
+make dev
+```
+
+起動後、ブラウザで以下のURLにアクセスしてください。
+- **Streamlit UI**: [http://localhost:8501](http://localhost:8501)
+- **FastAPI Docs (Swagger)**: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+---
+
+## 📁 プロジェクト構成 (Project Structure)
+
+```text
+kiyono/
+├── app/
+│   ├── main.py                # FastAPI エントリポイント
+│   ├── config.py              # 環境変数・設定管理 (pydantic-settings)
+│   ├── schemas.py             # API入出力・バリデーションのスキーマ
+│   └── services/
+│       ├── article_generator.py # 本文生成・プロンプト構築ロジック
+│       ├── llm_client.py        # Gemini API / Stub クライアントの抽象化
+│       ├── llmo_validator.py    # LLMO要件のルールベース検査ロジック
+│       └── title_generator.py   # タイトル案生成・後処理ロジック
+├── frontend/
+│   └── app.py                 # Streamlit UI実装
+├── docs/                      # 評価用ドキュメント（企画書・意思決定ログ等）
+├── tests/                     # pytestテストコード
+├── Makefile                   # 開発用コマンド集
+├── pyproject.toml             # パッケージ・ツール設定
+└── README.md                  # 本ファイル
 ```
 
 ---
 
-## 6. Run (Planned)
+## 🎯 評価者の方へ (For Evaluators)
 
-## Backend
-```kiyono/README.md#L1-10
-uv run uvicorn app.main:app --reload --port 8000
-```
+本課題では「完成度だけでなく、思考プロセスやアプローチ」が重視されているため、実装コードに加えて以下のドキュメントを用意しています。最終面接時の補足資料としてご参照ください。
 
-## Frontend
-```kiyono/README.md#L1-10
-uv run streamlit run frontend/app.py
-```
-
-アクセス:
-- API Docs: `http://localhost:8000/docs`
-- UI: `http://localhost:8501`
+- 📄 **[docs/proposal.md](docs/proposal.md)**
+  - 課題に対する着眼点、アプローチ、工夫した点、技術選定の理由をまとめた**企画書**です。
+- 📄 **[docs/decisions.md](docs/decisions.md)**
+  - 開発中に行われた主要な設計判断（例：なぜ1括生成ではなく2段階生成にしたのか？なぜバリデータを作ったのか？）とその背景を記録した**意思決定ログ**です。
+- 📄 **[docs/experiments.md](docs/experiments.md)**
+  - プロンプトの設計や生成結果の品質改善に関する比較実験の記録です。
+- 📄 **[docs/plan.md](docs/plan.md)**
+  - 開発の進め方とマイルストーンの計画です。
 
 ---
 
-## 7. API Design (Baseline)
+## ⌨️ 開発用コマンド (Developer Commands)
 
-### `GET /health`
-- ヘルスチェック
+開発・保守に便利なコマンドを `Makefile` にまとめています。
 
-### `POST /generate/titles`
-Input:
-- `keyword: str`
-- `brief: str`
-- `n_titles: int` (default: 8)
-
-Output:
-- `titles: list[str]`
-
-### `POST /generate/article`
-Input:
-- `selected_title: str`
-- `keyword: str`
-- `brief: str`
-- `audience: str | null`
-- `tone: str | null`
-
-Output:
-- `markdown_article: str`
-- `validation_report: dict`
-- `json_ld: dict | null`
-
----
-
-## 8. LLMO Rules (Must Have)
-
-1. 結論先行（Summaryで開始）
-2. 厳密な定義（「Xとは、〜である」）
-3. 構造化（箇条書き + 表）
-4. FAQ（記事末尾）
-
----
-
-## 9. Development Policy
-
-- 小さな単位で実装
-- 変更理由を `docs/decisions.md` に記録
-- 最短動線（入力→生成→表示）を先に完成
-- その後に品質改善（validator・実験・UI改善）
-
----
-
-## 10. Minimal-Diff Commit Strategy
-
-実装時は**最小差分コミット**を徹底します。
-
-例:
-- `docs: add initial README and planning docs`
-- `chore: bootstrap project with uv and pyproject`
-- `feat: add FastAPI app with health endpoint`
-- `feat: implement title generation endpoint`
-- `feat: implement article generation endpoint`
-- `feat: add llmo validator and report`
-- `feat: connect streamlit ui to backend api`
-- `test: add smoke tests for core endpoints`
-- `docs: add experiment notes and interview talking points`
-
----
-
-## 11. Milestones (2 Weeks)
-
-- Day 1-2: 要件整理・ドキュメント整備・骨組み作成
-- Day 3-5: タイトル生成API + UI接続
-- Day 6-9: 本文生成 + LLMO制約反映
-- Day 10-11: バリデータ実装 + 比較実験
-- Day 12-14: 仕上げ・デモ準備・想定問答整理
-
----
-
-## 12. Interview Readiness Checklist
-
-- [ ] なぜ2段階生成にしたか説明できる
-- [ ] LLMO要件をどう担保したか説明できる
-- [ ] 参考記事の採用/不採用理由を説明できる
-- [ ] 制約下での優先順位と妥協点を説明できる
-- [ ] 実装デモを迷わず再現できる
-
----
-
-## 13. Notes
-
-このリポジトリは、**完成度だけでなく思考過程を示す**ことを重視します。  
-「動く実装」と「説明できる判断」をセットで残す方針で進めます。
+- `make dev` : バックエンドとフロントエンドを同時に起動
+- `make dev-backend` : バックエンドのみ起動（ホットリロード有効）
+- `make dev-frontend` : フロントエンドのみ起動
+- `make lint` : Ruff による静的解析（Linter）
+- `make format` : Ruff によるコードフォーマット
+- `make typecheck` : Pyright による型検査
+- `make test` : Pytest によるテスト実行
+- `make clean` : キャッシュファイルの削除

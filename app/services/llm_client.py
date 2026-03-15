@@ -1,10 +1,10 @@
-"""LLM client abstraction with deterministic local stub and Gemini API support.
+"""決定論的なローカルスタブとGemini APIをサポートするLLMクライアントの抽象化。
 
-This module provides:
-- A provider-agnostic client interface for text generation.
-- A Gemini API implementation.
-- A deterministic local stub implementation for development/testing.
-- A factory function to select a concrete client based on runtime settings.
+このモジュールは以下を提供します:
+- テキスト生成のためのプロバイダに依存しないクライアントインターフェース。
+- Gemini APIの実装。
+- 開発/テスト用の決定論的なローカルスタブ実装。
+- 実行時設定に基づいて具体的なクライアントを選択するファクトリ関数。
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from google.genai import types
 
 
 class LLMClient(Protocol):
-    """Protocol for language model clients."""
+    """言語モデルクライアントのプロトコル。"""
 
     async def generate_text(
         self,
@@ -28,7 +28,7 @@ class LLMClient(Protocol):
         temperature: float,
         max_output_tokens: int,
     ) -> str:
-        """Generate text asynchronously from prompts."""
+        """プロンプトから非同期でテキストを生成します。"""
         ...
 
     def generate(
@@ -37,19 +37,19 @@ class LLMClient(Protocol):
         system_prompt: str,
         user_prompt: str,
     ) -> str:
-        """Generate text synchronously from prompts."""
+        """プロンプトから同期的にテキストを生成します。"""
         ...
 
 
 class GeminiClient:
-    """Client for Google's Gemini API."""
+    """GoogleのGemini API用クライアント。"""
 
     def __init__(self, api_key: str, model_name: str = "gemini-1.5-flash") -> None:
-        """Initialize the Gemini client.
+        """Geminiクライアントを初期化します。
 
-        Args:
-            api_key: Gemini API key.
-            model_name: Model identifier to use.
+        引数:
+            api_key: Gemini APIキー。
+            model_name: 使用するモデル識別子。
         """
         self._client = genai.Client(api_key=api_key)
         self._model_name = model_name
@@ -62,7 +62,7 @@ class GeminiClient:
         temperature: float,
         max_output_tokens: int,
     ) -> str:
-        """Generate text asynchronously via Gemini."""
+        """Gemini経由で非同期でテキストを生成します。"""
         config = types.GenerateContentConfig(
             temperature=temperature,
             max_output_tokens=max_output_tokens,
@@ -81,8 +81,8 @@ class GeminiClient:
         system_prompt: str,
         user_prompt: str,
     ) -> str:
-        """Generate text synchronously via Gemini."""
-        # Default config for sync generation if not specified
+        """Gemini経由で同期的にテキストを生成します。"""
+        # 指定がない場合の同期生成のデフォルト設定
         config = types.GenerateContentConfig(
             temperature=0.4,
             max_output_tokens=8000,
@@ -97,10 +97,10 @@ class GeminiClient:
 
 
 class LocalDeterministicStubClient:
-    """Deterministic local stub client.
+    """決定論的なローカルスタブクライアント。
 
-    The output is generated from prompt content using stable hashing and
-    template logic. It does not call any external API.
+    出力は安定したハッシュとテンプレートロジックを使用してプロンプトコンテンツから生成されます。
+    外部APIは呼び出しません。
     """
 
     async def generate_text(
@@ -111,7 +111,7 @@ class LocalDeterministicStubClient:
         temperature: float,
         max_output_tokens: int,
     ) -> str:
-        """Generate deterministic text from prompts asynchronously."""
+        """プロンプトから決定論的なテキストを非同期で生成します。"""
         mode = self._detect_mode(system_prompt=system_prompt, user_prompt=user_prompt)
         if mode == "titles":
             return self._generate_titles(user_prompt=user_prompt)
@@ -123,7 +123,7 @@ class LocalDeterministicStubClient:
         system_prompt: str,
         user_prompt: str,
     ) -> str:
-        """Generate deterministic text from prompts synchronously."""
+        """プロンプトから決定論的なテキストを同期的に生成します。"""
         mode = self._detect_mode(system_prompt=system_prompt, user_prompt=user_prompt)
         if mode == "titles":
             return self._generate_titles(user_prompt=user_prompt)
@@ -275,12 +275,12 @@ class LocalDeterministicStubClient:
 
 
 def get_llm_client(provider: str = "stub") -> LLMClient:
-    """Return an LLM client by provider name.
+    """プロバイダ名でLLMクライアントを返します。
 
-    Args:
+    引数:
         provider: Provider identifier. Currently supports "gemini" and "stub".
 
-    Returns:
+    戻り値:
         Instance conforming to `LLMClient`.
     """
     from app.config import get_settings

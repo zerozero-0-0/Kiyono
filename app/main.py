@@ -1,4 +1,4 @@
-"""FastAPI application entrypoint for the LLMO content generator."""
+"""LLMOコンテンツジェネレーターのFastAPIアプリケーションエントリポイント。"""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from app.services.title_generator import TitleGenerationInput, TitleGenerationSe
 
 
 class HealthResponse(BaseModel):
-    """Response model for health check endpoint."""
+    """ヘルスチェックエンドポイントのレスポンスモデル。"""
 
     status: str = Field(..., description="Service status")
     app: str = Field(..., description="Application name")
@@ -48,7 +48,7 @@ app = FastAPI(
     tags=["system"],
 )
 def health() -> HealthResponse:
-    """Return service health and basic application metadata."""
+    """サービスの稼働状況と基本的なアプリケーションのメタデータを返します。"""
     return HealthResponse(
         status="ok",
         app=APP_TITLE,
@@ -67,10 +67,10 @@ def health() -> HealthResponse:
     tags=["generation"],
 )
 async def generate_titles(request: GenerateTitlesRequest) -> GenerateTitlesResponse:
-    """Generate multiple title candidates optimized for LLMs.
+    """LLMに最適化された複数のタイトル候補を生成します。
 
-    This endpoint uses a provider-agnostic text generation service to propose titles
-    based on a keyword and a brief.
+    このエンドポイントは、プロバイダに依存しないテキスト生成サービスを使用して、
+    キーワードと概要に基づいたタイトルを提案します。
     """
     settings = get_settings()
     llm_client = get_llm_client(provider=settings.llm_provider)
@@ -111,17 +111,16 @@ async def generate_titles(request: GenerateTitlesRequest) -> GenerateTitlesRespo
     tags=["generation"],
 )
 async def generate_article(request: GenerateArticleRequest) -> GenerateArticleResponse:
-    """Generate a full markdown article from a selected title.
+    """選択されたタイトルから完全なMarkdown記事を生成します。
 
-    The generation is constrained by LLMO formatting rules. The response includes
-    both the generated markdown and a structured validation report against the
-    LLMO criteria.
+    生成はLLMOのフォーマット規則によって制約されます。レスポンスには、
+    生成されたMarkdownと、LLMO基準に対する構造化されたバリデーションレポートの両方が含まれます。
     """
     settings = get_settings()
     llm_client = get_llm_client(provider=settings.llm_provider)
 
-    # We wrap the synchronous LLMClient in the ArticleGenerator.
-    # Since the stub is purely synchronous CPU-bound logic, it's fast.
+    # 同期的なLLMClientをArticleGeneratorでラップします。
+    # スタブは純粋に同期的なCPUバウンドのロジックであるため、高速です。
     generator = ArticleGenerator(llm_client=llm_client, model_name=settings.llm_model)
     validator = LLMOValidator()
 
@@ -136,16 +135,16 @@ async def generate_article(request: GenerateArticleRequest) -> GenerateArticleRe
     try:
         result = generator.generate(input_payload)
 
-        # Validate the generated markdown
+        # 生成されたMarkdownを検証する
         raw_report = validator.validate(result.markdown_article)
 
-        # Ensure dict matches Pydantic expectations safely
+        # 辞書がPydanticの期待値と安全に一致することを確認する
         validation_report = ValidationReport.model_validate(raw_report)
 
         return GenerateArticleResponse(
             markdown_article=result.markdown_article,
             validation_report=validation_report,
-            json_ld=None,  # Not implemented in MVP yet
+            json_ld=None,  # MVPではまだ未実装
         )
     except ValueError as e:
         raise HTTPException(

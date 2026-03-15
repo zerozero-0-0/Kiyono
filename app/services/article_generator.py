@@ -1,37 +1,44 @@
-"""Article generation service for LLMO-structured markdown output."""
+"""LLMO構造化Markdown出力のための記事生成サービス。"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Protocol
 
+from app.constants import (
+    ARTICLE_SYSTEM_PROMPT,
+    ARTICLE_USER_PROMPT_TEMPLATE,
+    DEFAULT_AUDIENCE,
+    DEFAULT_TONE,
+)
+
 
 class LLMClientProtocol(Protocol):
-    """Protocol for LLM client implementations used by the generator."""
+    """ジェネレーターで使用されるLLMクライアント実装のためのプロトコル。"""
 
     def generate(self, *, system_prompt: str, user_prompt: str) -> str:
-        """Generate text from a system/user prompt pair.
+        """システム/ユーザープロンプトのペアからテキストを生成します。
 
-        Args:
-            system_prompt: Behavioral instruction for the model.
-            user_prompt: Task-specific input content.
+        引数:
+            system_prompt: モデルへの振る舞いの指示。
+            user_prompt: タスク固有の入力コンテンツ。
 
-        Returns:
-            Generated text.
+        戻り値:
+            生成されたテキスト。
         """
         ...
 
 
 @dataclass(frozen=True)
 class ArticleGenerationInput:
-    """Input payload for article generation.
+    """記事生成のための入力ペイロード。
 
-    Attributes:
-        selected_title: Title chosen by user.
-        keyword: Main keyword for the article.
-        brief: Article brief or context.
-        audience: Optional target audience.
-        tone: Optional writing tone.
+    属性:
+        selected_title: ユーザーが選択したタイトル。
+        keyword: 記事のメインキーワード。
+        brief: 記事の概要またはコンテキスト。
+        audience: オプションのターゲット読者層。
+        tone: オプションの文体。
     """
 
     selected_title: str
@@ -43,11 +50,11 @@ class ArticleGenerationInput:
 
 @dataclass(frozen=True)
 class ArticleGenerationResult:
-    """Output payload for article generation.
+    """記事生成のための出力ペイロード。
 
-    Attributes:
-        markdown_article: LLMO-structured markdown article.
-        model_used: Optional model identifier.
+    属性:
+        markdown_article: LLMO構造化Markdown記事。
+        model_used: オプションのモデル識別子。
     """
 
     markdown_article: str
@@ -55,13 +62,13 @@ class ArticleGenerationResult:
 
 
 class ArticleGenerator:
-    """Generate LLMO-optimized markdown articles.
+    """LLMOに最適化されたMarkdown記事を生成します。
 
-    This service enforces LLMO structure by:
-    1) Starting with a direct summary.
-    2) Including explicit dictionary-style definitions.
-    3) Using structured lists and at least one markdown table.
-    4) Ending with a concise FAQ section.
+    このサービスは以下の方法でLLMO構造を強制します:
+    1) 直接的な要約（Summary）から始める。
+    2) 辞書形式の明示的な定義を含める。
+    3) 構造化されたリストと少なくとも1つのMarkdown表を使用する。
+    4) 簡潔なFAQセクションで終わる。
     """
 
     def __init__(
@@ -70,27 +77,26 @@ class ArticleGenerator:
         *,
         model_name: str | None = None,
     ) -> None:
-        """Initialize article generator.
+        """記事ジェネレーターを初期化します。
 
-        Args:
-            llm_client: LLM client implementation. If omitted, fallback template mode is used.
-            model_name: Optional model name for metadata.
+        引数:
+            llm_client: LLMクライアント実装。省略した場合はフォールバックのテンプレートモードが使用されます。
+            model_name: メタデータ用のオプションのモデル名。
         """
         self._llm_client: LLMClientProtocol | None = llm_client
         self._model_name: str | None = model_name
 
     def generate(self, payload: ArticleGenerationInput) -> ArticleGenerationResult:
-        """Generate a markdown article from input payload.
+        """入力ペイロードからMarkdown記事を生成します。
 
-        If an LLM client is available, this method prompts the model with strict
-        output constraints. Otherwise, it returns a deterministic template-based
-        article that still satisfies core LLMO structure.
+        LLMクライアントが利用可能な場合、このメソッドは厳格な出力制約を用いてモデルにプロンプトを出します。
+        そうでない場合は、コアのLLMO構造を満たす決定論的なテンプレートベースの記事を返します。
 
-        Args:
-            payload: User-selected title and context.
+        引数:
+            payload: ユーザーが選択したタイトルとコンテキスト。
 
-        Returns:
-            ArticleGenerationResult containing markdown output.
+        戻り値:
+            Markdown出力を含むArticleGenerationResult。
         """
         self._validate_payload(payload)
 
@@ -110,7 +116,7 @@ class ArticleGenerator:
         )
         cleaned = self._postprocess(generated)
 
-        # Safety fallback when model output is empty or malformed.
+        # モデルの出力が空または不正な場合の安全なフォールバック。
         if not cleaned.strip():
             cleaned = self._build_template_article(payload)
 
@@ -120,13 +126,13 @@ class ArticleGenerator:
         )
 
     def _validate_payload(self, payload: ArticleGenerationInput) -> None:
-        """Validate required generation inputs.
+        """必須の生成入力を検証します。
 
-        Args:
-            payload: Input payload to validate.
+        引数:
+            payload: 検証する入力ペイロード。
 
-        Raises:
-            ValueError: If required fields are blank.
+        例外:
+            ValueError: 必須フィールドが空の場合。
         """
         if not payload.selected_title.strip():
             raise ValueError("selected_title must not be empty.")
@@ -136,67 +142,37 @@ class ArticleGenerator:
             raise ValueError("brief must not be empty.")
 
     def _build_system_prompt(self) -> str:
-        """Build strict system prompt enforcing LLMO output rules."""
-        return (
-            "You are an expert technical content writer specializing in LLMO "
-            "(Large Language Model Optimization).\n"
-            "Generate a highly structured Japanese markdown article optimized "
-            "to be cited by AI models.\n\n"
-            "CRITICAL INSTRUCTIONS:\n"
-            "- Start EXACTLY with `## Summary` or `## 結論`. "
-            "Do NOT output `# Title` or any greetings.\n"
-            "- Provide EXACTLY the required headings. Do NOT deviate from the outline.\n"
-            "- Include a definition section where at least one keyword is defined "
-            "using the EXACT phrase: 'とは、〜である。'\n"
-            "- Ensure the article contains at least one markdown table "
-            "(`|---|---|`) for comparison.\n"
-            "- End the article with `## FAQ` and at least two Q&A pairs "
-            "formatted as `Q: ...` and `A: ...`.\n"
-            "- Keep paragraphs short and use bullet points frequently.\n"
-        )
+        """LLMO出力ルールを強制する厳格なシステムプロンプトを構築します。"""
+        return ARTICLE_SYSTEM_PROMPT
 
     def _build_user_prompt(self, payload: ArticleGenerationInput) -> str:
-        """Build user prompt from input payload.
+        """入力ペイロードからユーザープロンプトを構築します。
 
-        Args:
-            payload: Generation input.
+        引数:
+            payload: 生成入力。
 
-        Returns:
-            Prompt string for article generation.
+        戻り値:
+            記事生成のためのプロンプト文字列。
         """
-        audience = payload.audience or "指定なし"
-        tone = payload.tone or "実務的で簡潔"
+        audience = payload.audience or DEFAULT_AUDIENCE
+        tone = payload.tone or DEFAULT_TONE
 
-        return (
-            "以下の条件で記事を作成してください。\n\n"
-            f"- タイトル: {payload.selected_title}\n"
-            f"- メインキーワード: {payload.keyword}\n"
-            f"- 概要: {payload.brief}\n"
-            f"- 想定読者: {audience}\n"
-            f"- 文体: {tone}\n\n"
-            "以下の構成（Markdown見出し）に厳密に従って出力してください:\n\n"
-            "## Summary\n"
-            "（ここにタイトルに対する結論を150文字以内で書く）\n\n"
-            "## Definitions\n"
-            "（ここに「Xとは、〜である。」という形式の定義を最低2つ書く）\n\n"
-            "## 実践ポイント\n"
-            "（箇条書きで具体的に解説）\n\n"
-            "## 比較表\n"
-            "（必ず1つ以上のMarkdown表を含める）\n\n"
-            "## まとめ\n"
-            "（記事の要約）\n\n"
-            "## FAQ\n"
-            "（Q: と A: の形式で3つ以上の想定質問と回答を書く）\n"
+        return ARTICLE_USER_PROMPT_TEMPLATE.format(
+            selected_title=payload.selected_title,
+            keyword=payload.keyword,
+            brief=payload.brief,
+            audience=audience,
+            tone=tone,
         )
 
     def _build_template_article(self, payload: ArticleGenerationInput) -> str:
-        """Build deterministic fallback article with LLMO structure.
+        """LLMO構造を持つ決定論的なフォールバック記事を構築します。
 
-        Args:
-            payload: Generation input.
+        引数:
+            payload: 生成入力。
 
-        Returns:
-            Markdown article string.
+        戻り値:
+            Markdown記事の文字列。
         """
         audience = payload.audience or "想定読者未指定"
         tone = payload.tone or "実務的で簡潔"
@@ -238,12 +214,12 @@ class ArticleGenerator:
         )
 
     def _postprocess(self, text: str) -> str:
-        """Normalize generated markdown text.
+        """生成されたMarkdownテキストを正規化します。
 
-        Args:
-            text: Raw generated text.
+        引数:
+            text: 生成された生のテキスト。
 
-        Returns:
-            Cleaned markdown.
+        戻り値:
+            クリーンアップされたMarkdown。
         """
         return text.strip()

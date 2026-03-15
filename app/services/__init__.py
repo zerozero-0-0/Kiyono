@@ -1,1 +1,1 @@
-"""Service layer package for LLMO content generation."""
+"""LLMOコンテンツ生成のためのサービスレイヤーパッケージ。"""

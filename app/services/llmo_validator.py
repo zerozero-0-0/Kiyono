@@ -1,13 +1,13 @@
-"""LLMO validation service.
+"""LLMOバリデーションサービス。
 
-This module provides a lightweight, explainable validator for generated markdown
-articles. It checks whether key LLMO structural requirements are present:
+このモジュールは、生成されたMarkdown記事に対する軽量で説明可能なバリデータを提供します。
+主要なLLMO構造要件が存在するかどうかを確認します:
 
-1. Summary-first structure
-2. Strict definition sentence(s) in the form: "Xとは、〜である"
-3. Markdown table usage
-4. FAQ section at the end
-5. Basic heading hierarchy sanity
+1. 結論先行（Summary-first）の構造
+2. 「Xとは、〜である」の形式の厳密な定義文
+3. Markdown表の使用
+4. 末尾のFAQセクション
+5. 基本的な見出し階層の健全性
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from typing import TypedDict
 
 
 class CheckResult(TypedDict):
-    """Serializable validation check entry."""
+    """シリアライズ可能な検証チェックエントリ。"""
 
     name: str
     passed: bool
@@ -27,7 +27,7 @@ class CheckResult(TypedDict):
 
 
 class StatsResult(TypedDict):
-    """Serializable validation stats."""
+    """シリアライズ可能な検証統計情報。"""
 
     definition_count: int
     table_count: int
@@ -37,7 +37,7 @@ class StatsResult(TypedDict):
 
 
 class ValidationResult(TypedDict):
-    """Serializable validation payload."""
+    """シリアライズ可能な検証ペイロード。"""
 
     passed: bool
     checks: list[CheckResult]
@@ -49,7 +49,7 @@ class ValidationResult(TypedDict):
 
 @dataclass(frozen=True)
 class ValidationCheck:
-    """Represents one validation check result."""
+    """1つの検証チェック結果を表します。"""
 
     name: str
     passed: bool
@@ -57,7 +57,7 @@ class ValidationCheck:
 
 
 class LLMOValidator:
-    """Validate markdown content against LLMO structural requirements."""
+    """MarkdownコンテンツがLLMOの構造要件を満たしているか検証します。"""
 
     _definition_pattern: Pattern[str] = re.compile(
         r"[^\n。]{1,80}とは、[^。\n]{3,300}である[。.]?",
@@ -84,7 +84,7 @@ class LLMOValidator:
     )
 
     def validate(self, markdown_article: str) -> ValidationResult:
-        """Validate a markdown article and return a structured report."""
+        """Markdown記事を検証し、構造化されたレポートを返します。"""
         text = markdown_article.strip()
 
         checks: list[ValidationCheck] = []
@@ -144,7 +144,7 @@ class LLMOValidator:
         }
 
     def _check_summary_first(self, text: str) -> tuple[bool, str]:
-        """Check whether the article starts with a summary-like section."""
+        """記事が要約のようなセクションで始まっているか確認します。"""
         if not text:
             return False, "Article is empty."
 
@@ -183,11 +183,11 @@ class LLMOValidator:
         return False, "Summary-first signal not found near top."
 
     def _count_definitions(self, text: str) -> int:
-        """Count strict definition-pattern sentences."""
+        """厳密な定義パターンの文をカウントします。"""
         return len(self._definition_pattern.findall(text))
 
     def _check_markdown_table(self, text: str) -> tuple[bool, int]:
-        """Check markdown table presence and estimate table block count."""
+        """Markdown表の存在を確認し、表のブロック数を推定します。"""
         rows = self._table_row_pattern.findall(text)
         delims = self._table_delim_pattern.findall(text)
 
@@ -198,7 +198,7 @@ class LLMOValidator:
         return table_count >= 1, table_count
 
     def _check_faq_section(self, text: str) -> tuple[bool, str]:
-        """Check FAQ section heading and minimal Q/A signal."""
+        """FAQセクションの見出しと最小限のQ/Aシグナルを確認します。"""
         heading_match = self._faq_heading_pattern.search(text)
         if heading_match is None:
             return False, "FAQ heading not found. Use '## FAQ' or equivalent."
@@ -219,7 +219,7 @@ class LLMOValidator:
         return True, "FAQ heading and Q/A pairs found near article end."
 
     def _check_heading_hierarchy(self, text: str) -> tuple[bool, str]:
-        """Check basic h2/h3 hierarchy sanity."""
+        """基本的なh2/h3階層の健全性を確認します。"""
         h2_count = len(self._h2_pattern.findall(text))
         h3_count = len(self._h3_pattern.findall(text))
 
@@ -228,7 +228,7 @@ class LLMOValidator:
         return True, f"h2={h2_count}, h3={h3_count}"
 
     def _build_missing_actions(self, checks: list[ValidationCheck]) -> list[str]:
-        """Generate actionable suggestions for failed checks."""
+        """失敗したチェックに対する実行可能な提案を生成します。"""
         actions: list[str] = []
 
         for check in checks:

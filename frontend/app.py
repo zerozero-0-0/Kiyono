@@ -1,4 +1,4 @@
-"""Streamlit UI for the LLMO content generator project."""
+"""LLMOコンテンツジェネレータープロジェクトのためのStreamlit UI。"""
 
 import httpx
 import streamlit as st
@@ -7,7 +7,7 @@ API_BASE_URL = "http://localhost:8000"
 
 
 def init_session_state() -> None:
-    """Initialize session state variables."""
+    """セッション状態変数を初期化します。"""
     if "titles" not in st.session_state:
         st.session_state.titles = []
     if "selected_title" not in st.session_state:
@@ -19,7 +19,7 @@ def init_session_state() -> None:
 
 
 def generate_titles(keyword: str, brief: str, n_titles: int) -> None:
-    """Call backend to generate titles."""
+    """バックエンドを呼び出してタイトルを生成します。"""
     with st.spinner("Generating titles..."):
         try:
             response = httpx.post(
@@ -38,7 +38,7 @@ def generate_titles(keyword: str, brief: str, n_titles: int) -> None:
 
 
 def generate_article(selected_title: str, keyword: str, brief: str) -> None:
-    """Call backend to generate article."""
+    """バックエンドを呼び出して記事を生成します。"""
     with st.spinner("Generating article..."):
         try:
             response = httpx.post(
@@ -59,7 +59,7 @@ def generate_article(selected_title: str, keyword: str, brief: str) -> None:
 
 
 def main() -> None:
-    """Render the main Streamlit application."""
+    """メインのStreamlitアプリケーションをレンダリングします。"""
     st.set_page_config(
         page_title="LLMO Content Generator",
         page_icon="🧠",

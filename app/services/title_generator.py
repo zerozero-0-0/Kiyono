@@ -1,10 +1,10 @@
-"""Title generation service for LLMO-oriented content creation.
+"""LLMO指向のコンテンツ作成のためのタイトル生成サービス。
 
-This module provides a provider-agnostic title generation service that:
-- validates and normalizes title count requests
-- builds a deterministic prompt for LLM title generation
-- parses model output into clean title candidates
-- applies lightweight post-filters to improve practical quality
+このモジュールは、プロバイダに依存しない以下の機能を持つタイトル生成サービスを提供します:
+- タイトル数のリクエストを検証および正規化します
+- LLMタイトル生成のための決定論的プロンプトを構築します
+- モデルの出力をクリーンなタイトル候補に解析します
+- 実用的な品質を向上させるための軽量なポストフィルターを適用します
 """
 
 from __future__ import annotations
@@ -13,12 +13,20 @@ import re
 from dataclasses import dataclass
 from typing import Protocol
 
+from app.constants import (
+    TITLE_MAX_GENERATION_COUNT,
+    TITLE_MIN_GENERATION_COUNT,
+    TITLE_MIN_LENGTH_FILTER,
+    TITLE_SYSTEM_PROMPT,
+    TITLE_USER_PROMPT_TEMPLATE,
+)
+
 
 class LLMClientProtocol(Protocol):
-    """Provider-agnostic LLM client contract.
+    """プロバイダに依存しないLLMクライアントのコントラクト。
 
-    Any concrete LLM client (Gemini/OpenAI/Anthropic/etc.) can implement this
-    interface so the title generation logic stays independent from providers.
+    タイトル生成ロジックがプロバイダから独立して維持されるように、
+    任意の具体的なLLMクライアント（Gemini/OpenAI/Anthropicなど）がこのインターフェースを実装できます。
     """
 
     async def generate_text(
@@ -29,18 +37,18 @@ class LLMClientProtocol(Protocol):
         temperature: float,
         max_output_tokens: int,
     ) -> str:
-        """Generate text response from the configured LLM provider."""
+        """設定されたLLMプロバイダからテキストレスポンスを生成します。"""
         ...
 
 
 @dataclass(frozen=True, slots=True)
 class TitleGenerationInput:
-    """Input model for title generation.
+    """タイトル生成のための入力モデル。
 
-    Attributes:
-        keyword: Main blog topic or keyword.
-        brief: Short summary of user intent, audience, and constraints.
-        n_titles: Desired number of titles.
+    属性:
+        keyword: メインのブログトピックまたはキーワード。
+        brief: ユーザーの意図、読者層、制約の短い要約。
+        n_titles: 希望するタイトルの数。
     """
 
     keyword: str
@@ -50,11 +58,11 @@ class TitleGenerationInput:
 
 @dataclass(frozen=True, slots=True)
 class TitleGenerationResult:
-    """Output model for title generation.
+    """タイトル生成のための出力モデル。
 
-    Attributes:
-        titles: Generated and sanitized title list.
-        rationale: Optional simple rationale list per title.
+    属性:
+        titles: 生成およびサニタイズされたタイトルリスト。
+        rationale: 各タイトルに対する簡単な理由のリスト（オプション）。
     """
 
     titles: list[str]
@@ -62,10 +70,10 @@ class TitleGenerationResult:
 
 
 class TitleGenerationService:
-    """Generate blog title candidates for LLMO use cases."""
+    """LLMOのユースケースのためのブログタイトル候補を生成します。"""
 
-    _MIN_TITLES: int = 1
-    _MAX_TITLES: int = 10
+    _MIN_TITLES: int = TITLE_MIN_GENERATION_COUNT
+    _MAX_TITLES: int = TITLE_MAX_GENERATION_COUNT
 
     def __init__(
         self,
@@ -74,28 +82,28 @@ class TitleGenerationService:
         temperature: float = 0.4,
         max_output_tokens: int = 1200,
     ) -> None:
-        """Initialize service.
+        """サービスを初期化します。
 
-        Args:
-            llm_client: Provider-agnostic LLM client implementation.
-            temperature: Sampling temperature for title generation.
-            max_output_tokens: Maximum output tokens from LLM.
+        引数:
+            llm_client: プロバイダに依存しないLLMクライアント実装。
+            temperature: タイトル生成のサンプリング温度。
+            max_output_tokens: LLMからの最大出力トークン。
         """
         self._llm_client: LLMClientProtocol = llm_client
         self._temperature: float = temperature
         self._max_output_tokens: int = max_output_tokens
 
     async def generate(self, payload: TitleGenerationInput) -> TitleGenerationResult:
-        """Generate title candidates.
+        """タイトル候補を生成します。
 
-        Args:
-            payload: Title generation input.
+        引数:
+            payload: タイトル生成の入力。
 
-        Returns:
-            TitleGenerationResult containing sanitized title list.
+        戻り値:
+            サニタイズされたタイトルリストを含むTitleGenerationResult。
 
-        Raises:
-            ValueError: If input is invalid after normalization.
+        例外:
+            ValueError: 正規化後に入力が無効な場合。
         """
         keyword = self._sanitize_text(payload.keyword)
         brief = self._sanitize_text(payload.brief)
@@ -128,7 +136,7 @@ class TitleGenerationService:
 
     @classmethod
     def _normalize_title_count(cls, n_titles: int) -> int:
-        """Clamp requested title count into supported bounds."""
+        """要求されたタイトル数をサポートされる範囲内に制限します。"""
         if n_titles < cls._MIN_TITLES:
             return cls._MIN_TITLES
         if n_titles > cls._MAX_TITLES:
@@ -137,43 +145,27 @@ class TitleGenerationService:
 
     @staticmethod
     def _sanitize_text(value: str) -> str:
-        """Normalize whitespace and trim text."""
+        """空白を正規化し、テキストをトリミングします。"""
         compact = re.sub(r"\s+", " ", value or "")
         return compact.strip()
 
     @staticmethod
     def _build_system_prompt() -> str:
-        """Return system instruction for title generation."""
-        return (
-            "あなたはB2Bマーケティングに強い編集者です。"
-            "与えられたキーワードと概要から、生成AIに引用されやすい記事タイトルを作成してください。"
-            "冗長な表現を避け、具体性・検索意図・実務有用性を優先します。"
-            "出力は必ずタイトルのみを改行区切りで返してください。"
-            "番号、箇条書き記号、前置き、解説文は不要です。"
-        )
+        """タイトル生成のためのシステム指示を返します。"""
+        return TITLE_SYSTEM_PROMPT
 
     @staticmethod
     def _build_user_prompt(*, keyword: str, brief: str, n_titles: int) -> str:
-        """Build user prompt with explicit constraints."""
-        return (
-            f"キーワード: {keyword}\n"
-            f"記事概要: {brief}\n"
-            f"生成件数: {n_titles}\n\n"
-            "制約:\n"
-            "- 1タイトルは30〜55文字程度を目安\n"
-            "- 曖昧語より具体語を優先\n"
-            "- 想定読者が得る価値を匂わせる\n"
-            "- 互いに重複しない観点を含める\n"
-            "- 煽りすぎない自然な日本語にする\n"
-        )
+        """明示的な制約を持つユーザープロンプトを構築します。"""
+        return TITLE_USER_PROMPT_TEMPLATE.format(keyword=keyword, brief=brief, n_titles=n_titles)
 
     @staticmethod
     def _parse_titles(raw_text: str) -> list[str]:
-        """Parse multiline model output into candidate titles."""
+        """複数行のモデル出力をタイトル候補に解析します。"""
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
         normalized: list[str] = []
         for line in lines:
-            # Remove common list markers like "1. ", "- ", "• "
+            # "1. ", "- ", "• " のような一般的なリストマーカーを削除します
             cleaned = re.sub(r"^\s*(?:[-•*]|\d+[.)])\s*", "", line).strip()
             if cleaned:
                 normalized.append(cleaned)
@@ -186,17 +178,17 @@ class TitleGenerationService:
         target_count: int,
         keyword: str,
     ) -> list[str]:
-        """Deduplicate and lightly filter titles.
+        """タイトルを重複排除し、軽くフィルタリングします。
 
-        Rules:
-        - remove exact duplicates while preserving order
-        - remove titles that are too short
-        - prioritize titles that include keyword tokens
+        ルール:
+        - 順序を保持しながら完全な重複を削除する
+        - 短すぎるタイトルを削除する
+        - キーワードトークンを含むタイトルを優先する
         """
         seen: set[str] = set()
         unique: list[str] = []
         for title in titles:
-            if len(title) < 8:
+            if len(title) < TITLE_MIN_LENGTH_FILTER:
                 continue
             if title in seen:
                 continue
@@ -217,5 +209,5 @@ class TitleGenerationService:
 
         ranked: list[str] = with_keyword + without_keyword
 
-        # If model returns fewer than requested, return what we have.
+        # モデルの返却数が要求より少ない場合は、取得できた分だけ返します
         return ranked[:target_count] if len(ranked) >= target_count else ranked

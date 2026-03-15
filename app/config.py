@@ -1,8 +1,8 @@
-"""Application configuration using typed settings.
+"""型付き設定を使用したアプリケーション設定。
 
-This module centralizes environment-driven settings for the project.
-Values are loaded from `.env` (if present) and can be overridden by
-real environment variables.
+このモジュールは、プロジェクトの環境駆動型設定を一元管理します。
+値は `.env`（存在する場合）から読み込まれ、
+実際の環境変数によって上書きされる可能性があります。
 """
 
 from functools import lru_cache
@@ -13,23 +13,23 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Typed application settings.
+    """型付きアプリケーション設定。
 
-    Attributes:
-        app_env: Runtime environment name.
-        log_level: Log verbosity level.
-        host: Host address for the API server.
-        port: Port for the API server.
-        llm_provider: Active LLM provider identifier.
-        llm_model: Model name used by the selected provider.
-        gemini_api_key: API key for Gemini.
-        openai_api_key: API key for OpenAI.
-        anthropic_api_key: API key for Anthropic.
-        request_timeout_seconds: Timeout for outbound LLM requests.
-        max_titles: Upper bound for generated title count.
-        default_titles: Default title count when not specified.
-        temperature: Generation temperature.
-        max_output_tokens: Max tokens for model output.
+    属性:
+        app_env: 実行環境名。
+        log_level: ログの詳細レベル。
+        host: APIサーバーのホストアドレス。
+        port: APIサーバーのポート。
+        llm_provider: アクティブなLLMプロバイダの識別子。
+        llm_model: 選択されたプロバイダで使用されるモデル名。
+        gemini_api_key: GeminiのAPIキー。
+        openai_api_key: OpenAIのAPIキー。
+        anthropic_api_key: AnthropicのAPIキー。
+        request_timeout_seconds: 外部LLMリクエストのタイムアウト。
+        max_titles: 生成されるタイトル数の上限。
+        default_titles: 指定がない場合のデフォルトのタイトル数。
+        temperature: 生成の温度パラメータ（temperature）。
+        max_output_tokens: モデル出力の最大トークン数。
     """
 
     model_config = SettingsConfigDict(  # pyright: ignore[reportUnannotatedClassAttribute]
@@ -60,7 +60,7 @@ class Settings(BaseSettings):
 
     @property
     def provider_api_key(self) -> SecretStr | None:
-        """Return API key for the currently selected provider."""
+        """現在選択されているプロバイダのAPIキーを返します。"""
         if self.llm_provider == "gemini":
             return self.gemini_api_key
         if self.llm_provider == "openai":
@@ -71,19 +71,19 @@ class Settings(BaseSettings):
 
     @property
     def provider_api_key_value(self) -> str | None:
-        """Return plain API key string for the selected provider.
+        """選択されたプロバイダのプレーンなAPIキー文字列を返します。
 
-        Returns:
-            API key as plain string, or `None` when not configured.
+        戻り値:
+            プレーン文字列としてのAPIキー。設定されていない場合は `None`。
         """
         key = self.provider_api_key
         return key.get_secret_value() if key is not None else None
 
     def validate_runtime_constraints(self) -> None:
-        """Validate cross-field runtime constraints.
+        """フィールド間の実行時制約を検証します。
 
-        Raises:
-            ValueError: If settings combination is invalid.
+        例外:
+            ValueError: 設定の組み合わせが無効な場合。
         """
         if self.default_titles > self.max_titles:
             raise ValueError("default_titles must be less than or equal to max_titles.")
@@ -91,10 +91,10 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Return cached application settings instance.
+    """キャッシュされたアプリケーション設定インスタンスを返します。
 
-    Returns:
-        Singleton-like cached `Settings` object.
+    戻り値:
+        シングルトンのようなキャッシュされた `Settings` オブジェクト。
     """
     settings = Settings()
     settings.validate_runtime_constraints()
